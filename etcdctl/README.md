@@ -32,7 +32,7 @@ The protobuf encoding of the PUT [RPC response][etcdrpc].
 
 #### Examples
 
-``` bash
+```bash
 ./etcdctl put foo bar --lease=1234abcd
 # OK
 ./etcdctl get foo
@@ -47,7 +47,7 @@ If \<value\> isn't given as command line argument, this command tries to read th
 When \<value\> begins with '-', \<value\> is interpreted as a flag.
 Insert '--' for workaround:
 
-``` bash
+```bash
 ./etcdctl put <key> -- <value>
 ./etcdctl put -- <key> <value>
 ```
@@ -72,7 +72,11 @@ GET gets the key or a range of keys [key, range_end) if `range-end` is given.
 
 - print-value-only -- print only value when used with write-out=simple
 
-TODO: add consistency, from, prefix
+- consistency -- Linearizable(l) or Serializable(s)
+
+- from-key -- Get keys that are greater than or equal to the given key using byte compare
+
+- keys-only -- Get only the keys
 
 #### Return value
 
@@ -92,10 +96,30 @@ The protobuf encoding of the [RPC message][etcdrpc] for a key-value pair for eac
 
 #### Examples
 
-``` bash
+```bash
+./etcdctl put foo bar
+# OK
+./etcdctl put foo1 bar1
+# OK
+./etcdctl put foo2 bar2
+# OK
+./etcdctl put foo3 bar3
+# OK
 ./etcdctl get foo
 # foo
 # bar
+./etcdctl get --from-key foo1
+# foo1
+# bar1
+# foo2
+# bar2
+# foo3
+# bar3
+./etcdctl get foo1 foo3
+# foo1
+# bar1
+# foo2
+# bar2
 ```
 
 #### Notes
@@ -110,6 +134,8 @@ Removes the specified key or range of keys [key, range_end) if `range-end` is gi
 #### Options
 
 - prefix -- delete keys by matching prefix
+
+- prev-kv -- return deleted key-value pairs
 
 TODO: --from
 
@@ -131,7 +157,7 @@ The protobuf encoding of the DeleteRange [RPC response][etcdrpc].
 
 #### Examples
 
-``` bash
+```bash
 ./etcdctl put foo bar
 # OK
 ./etcdctl del foo
@@ -189,7 +215,7 @@ The protobuf encoding of the Txn [RPC response][etcdrpc].
 #### Examples
 
 txn in interactive mode:
-``` bash
+```bash
 ./etcdctl txn -i
 mod("key1") > "0"
 
@@ -206,7 +232,7 @@ put key2 "some extra key"
 ```
 
 txn in non-interactive mode:
-```
+```bash
 ./etcdctl txn <<<'mod("key1") > "0"
 
 put key1 "overwrote-key1"
@@ -215,6 +241,7 @@ put key1 "created-key1"
 put key2 "some extra key"
 
 '
+
 # FAILURE
 
 # OK
@@ -266,7 +293,7 @@ The protobuf encoding of the [RPC message][storagerpc] for each received Event.
 
 ##### Non-interactive
 
-``` bash
+```bash
 ./etcdctl watch foo
 # PUT
 # foo
@@ -275,7 +302,7 @@ The protobuf encoding of the [RPC message][storagerpc] for each received Event.
 
 ##### Interactive
 
-``` bash
+```bash
 ./etcdctl watch -i
 watch foo
 watch foo
@@ -327,9 +354,13 @@ LEASE REVOKE destroys a given lease, deleting all attached keys.
 ```
 
 
-### LEASE TIMETOLIVE \<leaseID\>
+### LEASE TIMETOLIVE \<leaseID\> [options]
 
 LEASE TIMETOLIVE retrieves the lease information with the given lease ID.
+
+#### Options
+
+- keys -- Get keys attached to this lease
 
 #### Return value
 
@@ -387,7 +418,7 @@ LEASE KEEP-ALIVE periodically refreshes a lease so it does not expire.
 
 MEMBER provides commands for managing etcd cluster membership.
 
-### MEMBER ADD \<memberName\>
+### MEMBER ADD \<memberName\> [options]
 
 MEMBER ADD introduces a new member into the etcd cluster as a new peer.
 
@@ -409,7 +440,7 @@ MEMBER ADD introduces a new member into the etcd cluster as a new peer.
 ```
 
 
-### MEMBER UPDATE \<memberID\>
+### MEMBER UPDATE \<memberID\> [options]
 
 MEMBER UPDATE sets the peer URLs for an existing member in the etcd cluster.
 
@@ -616,11 +647,15 @@ The lease length of a leader defaults to 60 seconds. If a candidate is abnormall
 progress may be delayed by up to 60 seconds.
 
 
-### COMPACTION \<revision\>
+### COMPACTION [options] \<revision\>
 
 COMPACTION discards all etcd event history prior to a given revision. Since etcd uses a multiversion concurrency control
 model, it preserves all key updates as event history. When the event history up to some revision is no longer needed,
 all superseded keys may be compacted away to reclaim storage space in the etcd backend database.
+
+#### Options
+
+- physical -- 'true' to wait for compaction to physically remove all old revisions
 
 #### Return value
 
@@ -669,6 +704,10 @@ the database, the etcd member releases this free space back to the file system.
 - dest-key -- TLS key file for destination cluster
 
 - prefix -- The key-value prefix to mirror
+
+- dest-prefix -- The destination prefix to mirror a prefix to a different prefix in the destination cluster
+
+- no-dest-prefix -- Mirror key-values to the root of the destination cluster
 
 #### Return value
 
@@ -728,6 +767,8 @@ The snapshot restore options closely resemble to those used in the `etcd` comman
 - initial-advertise-peer-urls -- List of peer URLs for the member being restored.
 
 - name -- Human-readable name for the etcd cluster member being restored.
+
+- skip-hash-check -- Ignore snapshot integrity hash value (required if copied from data directory)
 
 #### Return value
 
@@ -857,7 +898,7 @@ The provided transformer should read until EOF and flush the stdout before exiti
 
 #### Examples
 
-``` bash
+```bash
 ./etcdctl user add root
 # Password of root:#type password for root
 # Type password of root again for confirmation:#re-type password for root
@@ -891,7 +932,7 @@ The provided transformer should read until EOF and flush the stdout before exiti
 
 #### Examples
 
-``` bash
+```bash
 ./etcdctl --user=root:123 role add myrole
 # Role myrole created
 ```
@@ -910,7 +951,7 @@ The provided transformer should read until EOF and flush the stdout before exiti
 
 #### Examples
 
-``` bash
+```bash
 ./etcdctl --user=root:123 role delete myrole
 # Role myrole deleted
 ```
@@ -929,7 +970,7 @@ The provided transformer should read until EOF and flush the stdout before exiti
 
 #### Examples
 
-``` bash
+```bash
 ./etcdctl --user=root:123 role get myrole
 # Role myrole
 # KV Read:
@@ -952,7 +993,7 @@ The provided transformer should read until EOF and flush the stdout before exiti
 
 #### Examples
 
-``` bash
+```bash
 ./etcdctl --user=root:123 role grant-permission myrole readwrite foo
 # Role myrole updated
 ```
@@ -971,7 +1012,7 @@ The provided transformer should read until EOF and flush the stdout before exiti
 
 #### Examples
 
-``` bash
+```bash
 ./etcdctl --user=root:123 role revoke-permission myrole foo
 # Permission of key foo is revoked from role myrole
 ```
@@ -990,10 +1031,10 @@ The provided transformer should read until EOF and flush the stdout before exiti
 
 #### Examples
 
-``` bash
+```bash
 ./etcdctl --user=root:123 user add myuser
 # Password of myuser: #type password for my user
-# Type password of myuser again for confirmation:#re-type password for my user 
+# Type password of myuser again for confirmation:#re-type password for my user
 # User myuser created
 ```
 
@@ -1011,7 +1052,7 @@ The provided transformer should read until EOF and flush the stdout before exiti
 
 #### Examples
 
-``` bash
+```bash
 ./etcdctl --user=root:123 user delete myuser
 # User myuser deleted
 ```
@@ -1030,7 +1071,7 @@ The provided transformer should read until EOF and flush the stdout before exiti
 
 #### Examples
 
-``` bash
+```bash
 ./etcdctl --user=root:123 user get myuser
 # User: myuser
 # Roles:
@@ -1054,10 +1095,10 @@ The provided transformer should read until EOF and flush the stdout before exiti
 
 #### Examples
 
-``` bash
+```bash
 ./etcdctl --user=root:123 user passwd myuser
 # Password of myuser: #type new password for my user
-# Type password of myuser again for confirmation: #re-type the new password for my user 
+# Type password of myuser again for confirmation: #re-type the new password for my user
 # Password updated
 ```
 
@@ -1075,7 +1116,7 @@ The provided transformer should read until EOF and flush the stdout before exiti
 
 #### Examples
 
-``` bash
+```bash
 ./etcdctl --user=root:123 user grant-role userA roleA
 # Role roleA is granted to user userA
 ```
@@ -1094,7 +1135,7 @@ The provided transformer should read until EOF and flush the stdout before exiti
 
 #### Examples
 
-``` bash
+```bash
 ./etcdctl --user=root:123 user revoke-role userA roleA
 # Role roleA is revoked from user userA
 ```
